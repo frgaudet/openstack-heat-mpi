@@ -1,0 +1,183 @@
+heat_template_version: 2014-10-16
+
+description: Deploy a mpi master instance
+
+parameters:
+  key_name:
+    type: string
+    description: Name of key-pair to be used for the default user
+  flavor:
+    type: string
+    description: |
+      Choose an instance flavor
+  image_id:
+    type: string
+    label: Server image
+  net_id:
+    type: string
+    label: Network ID
+    description: ID of the network to use
+  name:
+    type: string
+    description: Name of each mpi machine booted
+  servers:
+    type: comma_delimited_list
+    label: Servers
+    description: Comma separated list of servers in the cluster.
+  private_key:
+    type: string
+    description: Name of private key to be used for the local mpi user
+  public_key:
+    type: string
+    description: Name of public key to be used for the local mpi user
+  public_network:
+    type: string
+    description: Public network id
+
+resources:
+  wait_condition:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: { get_resource: wait_handle }
+      count: 1
+      timeout: 300
+ 
+  wait_handle:
+    type: OS::Heat::WaitConditionHandle
+
+  mpi_master:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param: key_name }
+      name: { get_param: name }
+      image: { get_param: image_id }
+      networks:
+        - port: { get_resource: mpi_port }
+      flavor: { get_param: flavor }
+      metadata:
+        servers: { get_param: servers }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+            __private_key__: { get_param: private_key }
+            __public_key__: { get_param: public_key  }
+          template: |
+            #!/bin/bash
+
+            # Create local mpi user
+            useradd -m mpi
+            mkdir -p /home/mpi/.ssh
+            echo "__public_key__" > /home/mpi/.ssh/authorized_keys
+            echo "__private_key__" > /home/mpi/.ssh/id_rsa
+
+            # Put ssh config
+            cat > /home/mpi/.ssh/config <<EOF
+            Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+            EOF
+
+            yum -y install python openmpi-bin openmpi-common openmpi-doc libopenmpi-dev || apt-get -y install python-minimal build-essential openmpi-bin openmpi-common openmpi-doc libopenmpi-dev
+
+            # Get nodes IP from openstack metadata
+            list=$(curl http://169.254.169.254/openstack/latest/meta_data.json 2>/dev/null | python -c 'import json,sys;metadata=json.load(sys.stdin);list=json.loads(metadata.get("meta", {}).get("servers", "[]")); print tuple(map(str,list)) ')
+            # Remove useless chars
+            list=${list//[\' ()]}
+            # Convert string to array
+            IFS=',' read -r -a server_list <<< "$list"
+
+            # Select default network device 
+            dev=$(/sbin/ip route | awk '/default/ { print $5 }')
+
+            # Find out associated IP
+            my_ip=$(ip a | grep ${dev} -A1 | grep inet | awk '{print $2}' | cut -d "/" -f 1)
+        
+
+            # Add Master IP in hosts file
+            cat >> /home/mpi/mpi_hosts << EOF
+            ${my_ip}
+            EOF
+            
+            # Add Seeder IP in hosts file
+            cat >> /etc/hosts << EOF
+            ${my_ip} $(hostname)
+            EOF
+            
+            # Add nodes IP in hosts file
+            for item in "${server_list[@]}"
+            do
+            ip=$(echo ${item} | cut -d "@" -f 1)
+            hostname=$(echo ${item} | cut -d "@" -f 2)
+            cat >> /etc/hosts << EOF
+            ${ip} ${hostname}
+            EOF
+            done
+
+            # Add nodes IP
+            for item in "${server_list[@]}"
+            do
+            ip=$(echo ${item} | cut -d "@" -f 1)
+            hostname=$(echo ${item} | cut -d "@" -f 2)
+            cat >> /home/mpi/mpi_hosts << EOF
+            ${ip}
+            EOF
+            done
+            
+            # Fix perms
+            chmod 600 /home/mpi/.ssh/id_rsa
+            chown -R mpi. /home/mpi/.ssh
+            chown -R mpi. /home/mpi
+
+            # Deploy settings
+            for item in "${server_list[@]}"
+            do
+                ip=$(echo ${item} | cut -d "@" -f 1)
+                sudo -H -u mpi scp /home/mpi/mpi_hosts ${ip}:/home/mpi/mpi_hosts
+                sudo -H -u mpi scp /etc/hosts ${ip}:/tmp/hosts
+                sudo -H -u mpi ssh ${ip} sudo mv /tmp/hosts /etc/hosts
+            done
+
+            # Notify Heat we're done
+            wc_notify --data-binary '{"status": "SUCCESS"}'
+    
+  mpi_security_group:
+        type: OS::Neutron::SecurityGroup
+        properties:
+          name: mpi_security_group
+          rules:
+            - protocol: icmp
+            - protocol: tcp
+              port_range_min: 22
+              port_range_max: 22
+            - protocol: tcp
+              remote_ip_prefix: 0.0.0.0/0
+              port_range_min: 1024
+              port_range_max: 64511
+
+  mpi_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: net_id }
+      security_groups:
+        - { get_resource: mpi_security_group }
+
+  floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: public_network }
+
+  floating_ip_assoc:
+    type: OS::Neutron::FloatingIPAssociation
+    properties:
+      floatingip_id: { get_resource: floating_ip }
+      port_id: { get_resource: mpi_port }
+
+outputs:
+  name:
+    description: Name of this mpi instance.
+    value: { get_attr: [mpi_master, name] }
+  ip:
+    description: The IP address of this mpi instance.
+    value: { get_attr: [mpi_master, first_address] }

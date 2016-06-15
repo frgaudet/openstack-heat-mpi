@@ -1,0 +1,113 @@
+heat_template_version: 2014-10-16
+
+description: Deploy a mpi node instance
+
+parameters:
+  key_name:
+    type: string
+    description: Name of key-pair to be used for the default user
+  flavor:
+    type: string
+    description: |
+      Choose an instance flavor
+  image_id:
+    type: string
+    label: Server image
+  net_id:
+    type: string
+    label: Network ID
+    description: ID of the network to use
+  name:
+    type: string
+    description: Name of each mpi machine booted
+  public_key:
+    type: string
+    description: Name of plublic key to be used for the local mpi user
+  private_key:
+    type: string
+    description: Name of private key to be used for the local mpi user
+
+resources:
+  wait_condition:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: { get_resource: wait_handle }
+      count: 1
+      timeout: 600
+ 
+  wait_handle:
+    type: OS::Heat::WaitConditionHandle
+
+  mpi_node:
+    type: OS::Nova::Server
+    properties:
+      key_name: { get_param: key_name }
+      image: { get_param: image_id }
+      networks:
+        - port: { get_resource: mpi_port }
+      flavor: { get_param: flavor }
+      name: { get_param: name }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __private_key__: { get_param: private_key }
+            __public_key__: { get_param: public_key  }
+            wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+
+            # Create local mpi user
+            useradd -m mpi
+            mkdir -p /home/mpi/.ssh
+            echo "__public_key__" > /home/mpi/.ssh/authorized_keys
+            echo "__private_key__" > /home/mpi/.ssh/id_rsa
+
+            # Put ssh config
+            cat > /home/mpi/.ssh/config <<EOF
+            Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+            EOF
+            
+            # Fix perms
+            chmod 600 /home/mpi/.ssh/id_rsa
+            chown -R mpi. /home/mpi/.ssh
+            chown -R mpi. /home/mpi
+
+            # Install mpi
+            yum update || apt-get update
+            yum -y install openmpi-bin openmpi-common openmpi-doc libopenmpi-dev || apt-get install -y build-essential openmpi-bin openmpi-common openmpi-doc libopenmpi-dev
+            
+            cat > /etc/sudoers.d/mpi << EOF
+            mpi ALL=(ALL) NOPASSWD: /bin/mv /tmp/hosts /etc/hosts
+            EOF
+            chmod 440 /etc/sudoers.d/mpi
+
+            # Notify Heat we're done
+            wc_notify --data-binary '{"status": "SUCCESS"}'
+
+  mpi_security_group:
+        type: OS::Neutron::SecurityGroup
+        properties:
+          name: mpi_security_group
+          rules:
+            - protocol: icmp
+            - protocol: tcp
+              port_range_min: 22
+              port_range_max: 22
+            - protocol: tcp
+              port_range_min: 1024
+              port_range_max: 64511
+
+  mpi_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: net_id }
+      security_groups:
+        - { get_resource: mpi_security_group }
+
+outputs:
+  node_param:
+    description: The IP address of this mpi instance.
+    value: { list_join: ['@', [ get_attr: [mpi_node, first_address], get_attr: [mpi_node, name] ] ]  }
