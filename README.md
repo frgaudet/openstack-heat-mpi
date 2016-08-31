@@ -126,6 +126,7 @@ Rendering Progress:       100% complete
 
 ## Run with 4 nodes
 ```
+cd ~/tachyon/compile/linux-mpi
 mpirun -np 4 --hostfile ~/mpi_hosts ./tachyon ../../scenes/teapot.dat -format BMP
 ```
 
