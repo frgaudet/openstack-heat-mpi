@@ -180,5 +180,5 @@ outputs:
     description: Name of this mpi instance.
     value: { get_attr: [mpi_master, name] }
   ip:
-    description: The IP address of this mpi instance.
-    value: { get_attr: [mpi_master, first_address] }
+    description: The floating IP address of this mpi instance.
+    value: { get_attr: [floating_ip, floating_ip_address] }

@@ -39,9 +39,33 @@ heat stack-create -f mpi.yaml \
 	-P "count=4;flavor=m1.xlarge;key_name=fgaudet-key;image_id=1b115984-32b9-4485-a664-26229db439fa;net_id=dev-net;name=fgaudet-mpi" mpi-stack
 ```
 
+Note the stack id :
+```
++--------------------------------------+------------+--------------------+---------------------+--------------+
+| id                                   | stack_name | stack_status       | creation_time       | updated_time |
++--------------------------------------+------------+--------------------+---------------------+--------------+
+| b7a7092c-876c-4c19-a8d3-47cb857a0ca6 | mpi-stack  | CREATE_IN_PROGRESS | 2016-08-31T09:28:39 | None         |
++--------------------------------------+------------+--------------------+---------------------+--------------+
+```
+
 # Check the master
 
-Connect to your master, using the floating IP which has been automatically set up.
+Get your cluster's public IP address using the stack id (see above):
+
+`heat output-show b7a7092c-876c-4c19-a8d3-47cb857a0ca6 public_ip`
+
+This command should return you something like this, with of course a real IP :
+```
++--------------+--------------------------------------------+
+| Property     | Value                                      |
++--------------+--------------------------------------------+
+| description  | The public IP address of this mpi cluster. |
+| output_key   | public_ip                                  |
+| output_value | "XXX.XXX.XXX.XXX"                          |
++--------------+--------------------------------------------+
+```
+
+Then, connect to your master, using this IP you've just find out :
 
 `ssh <username>@<IP>`
 
@@ -82,7 +106,7 @@ Ok now we'll have a running mpi master, let's try out now a real application !
 The following steps were inspired from [here](https://support.rackspace.com/how-to/high-performance-computing-cluster-in-a-cloud-environment/ "Rackspace How to")
 
 ## Get application
-wget http://jedi.ks.uiuc.edu/~johns/raytracer/files/0.99b2/tachyon-0.99b2.tar.gz -O /tmp/tachyon.tar.gz
+`wget http://jedi.ks.uiuc.edu/~johns/raytracer/files/0.99b2/tachyon-0.99b2.tar.gz -O /tmp/tachyon.tar.gz`
 
 ## Deploy on every node
 ```

@@ -88,3 +88,8 @@ resources:
       public_key: { get_attr: [ my_key, public_key ]  }
       name: { get_param: name }
       public_network: { get_param: public_network }
+
+outputs:
+    public_ip:
+      description: The public IP address of this mpi cluster.
+      value: { get_attr: [mpi_master, ip] }
