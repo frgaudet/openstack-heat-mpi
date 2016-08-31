@@ -79,6 +79,7 @@ resources:
             UserKnownHostsFile=/dev/null
             EOF
 
+            yum update || apt-get update
             yum -y install python openmpi-bin openmpi-common openmpi-doc libopenmpi-dev || apt-get -y install python-minimal build-essential openmpi-bin openmpi-common openmpi-doc libopenmpi-dev
 
             # Get nodes IP from openstack metadata
