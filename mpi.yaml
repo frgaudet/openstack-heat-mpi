@@ -30,19 +30,19 @@ parameters:
     description: ID of the public network to use
   name:
     type: string
-    description: Name of each Cassandra machine booted
+    description: Name of each MPI machine booted
   public_network:
     type: string
     description: Public network id
     default: ext-net
   private_key:
     type: string
-    description: Name of private key to be used for the local Cassandra user
+    description: Name of private key to be used for the local MPI user
     default: []
     hidden: true
   public_key:
     type: string
-    description: Name of plublic key to be used for the local Cassandra user
+    description: Name of plublic key to be used for the local MPI user
     default: []
     hidden: true
       
