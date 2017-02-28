@@ -24,7 +24,7 @@ This heat template allows you to easily deploy a mpi cluster on OpenStack.
 cd openstack-heat-mpi
 heat stack-create -f mpi.yaml \
 	-e lib/env.yaml \
-	-P "key_name=fgaudet-key;image_id=3170a757-0c5b-48a8-899c-1c5a1a264907;net_id=dev-net;name=fgaudet-mpi" mpi-stack
+	-P "key_name=fgaudet-key;image_id=Ubuntu Server 16.04 LTS (xenial);net_id=dev-net;name=fgaudet-mpi" mpi-stack
 ```
 
 # Parameters
@@ -36,7 +36,7 @@ For example, create a 5 nodes cluster, with a m1.xlarge flavor :
 ```
 heat stack-create -f mpi.yaml \
 	-e lib/env.yaml \
-	-P "count=4;flavor=m1.xlarge;key_name=fgaudet-key;image_id=3170a757-0c5b-48a8-899c-1c5a1a264907;net_id=dev-net;name=fgaudet-mpi" mpi-stack
+	-P "count=4;flavor=m1.xlarge;key_name=fgaudet-key;image_id=Ubuntu Server 16.04 LTS (xenial);net_id=dev-net;name=fgaudet-mpi" mpi-stack
 ```
 
 Note the stack id :
