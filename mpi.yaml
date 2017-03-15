@@ -34,7 +34,7 @@ parameters:
   public_network:
     type: string
     description: Public network id
-    default: ext-net
+    default: ext-publicnet 
   private_key:
     type: string
     description: Name of private key to be used for the local MPI user
