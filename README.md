@@ -36,7 +36,7 @@ For example, create a 5 nodes cluster, with a m1.xlarge flavor :
 ```
 heat stack-create -f mpi.yaml \
 	-e lib/env.yaml \
-	-P "count=4;flavor=m1.xlarge;key_name=fgaudet-key;image_id=Ubuntu Server 16.04 LTS (xenial);net_id=dev-net;name=fgaudet-mpi" mpi-stack
+	-P "count=4;flavor=m1.xlarge;key_name=fgaudet-key;image_id=Ubuntu Server 16.04 LTS (xenial);net_id=fgaudet-net2;name=fgaudet-mpi" mpi-stack
 ```
 
 Note the stack id :
