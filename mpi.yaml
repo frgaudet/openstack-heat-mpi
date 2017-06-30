@@ -66,6 +66,14 @@ resources:
           net_id: { get_param: net_id }
           public_key: { get_attr: [ my_key, public_key ]  }
           private_key: { get_attr: [ my_key, private_key ] }
+          name:
+            str_replace:
+              template:
+                $name-$index
+              params:
+                $name: { get_param: name }
+                $index: "%index%"
+
 
   mpi_master:
     type: Lib::MSG::MPIMaster
